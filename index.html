@@ -25,10 +25,6 @@
         .back-btn { display: inline-block; margin-bottom: 20px; color: #0071e3; cursor: pointer; text-decoration: none; font-weight: 500; }
         .status-msg { text-align: center; font-size: 12px; color: #86868b; margin-top: 10px; }
     </style>
-
-    <!-- Classic Firebase Libraries (Allowed on local & remote files) -->
-    <script src="https://gstatic.com"></script>
-    <script src="https://gstatic.com"></script>
 </head>
 <body>
 
@@ -49,7 +45,7 @@
     <div id="screen-tasks" class="hidden">
         <a class="back-btn" onclick="showLogin()">← Change User</a>
         <h1 id="user-title">Jobs</h1>
-        <div id="status-text" class="status-msg">Connecting to cloud database...</div>
+        <div id="status-text" class="status-msg">💾 Saved Locally</div>
         
         <div class="task-list" id="task-container">
             <!-- Tasks load here -->
@@ -58,20 +54,6 @@
 </div>
 
 <script>
-    // Embedded with Team Lewis actual credentials
-    const firebaseConfig = {
-        apiKey: "AIzaSyA4zOR34_un8uv8e05Vs8OBHOgH_BwlpyI",
-        authDomain: "team-lewis-ac958.firebaseapp.com",
-        projectId: "team-lewis-ac958",
-        storageBucket: "team-lewis-ac958.firebasestorage.app",
-        messagingSenderId: "503360012799",
-        appId: "1:503360012799:web:3a5ca4ef8258c737e3a7ca"
-    };
-
-    // Initialize Firebase
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
-
     const familyData = {
         Sophia: {
             "🌅 Morning": ["Wash", "Brush teeth", "Breakfast & drink", "Crockery in dishwasher"],
@@ -98,9 +80,8 @@
         document.getElementById('screen-login').classList.add('hidden');
         document.getElementById('screen-tasks').classList.remove('hidden');
         document.getElementById('user-title').innerText = `${name}'s Jobs`;
-        document.getElementById('status-text').innerText = "Syncing with cloud...";
         
-        loadProgressFromCloud();
+        loadProgress();
     }
 
     function showLogin() {
@@ -138,24 +119,15 @@
         }
     }
 
-    function loadProgressFromCloud() {
-        const docRef = db.collection("familyTasks").doc(currentUser);
-        
-        docRef.get().then((docSnap) => {
-            if (docSnap.exists) {
-                completedTasks = docSnap.data();
-                document.getElementById('status-text').innerText = "☁️ Synced with Cloud";
-            } else {
-                completedTasks = {};
-                docRef.set({});
-                document.getElementById('status-text').innerText = "☁️ New Cloud Profile Created";
-            }
-            renderTasks();
-        }).catch((error) => {
-            console.error("Error loading data:", error);
-            document.getElementById('status-text').innerText = "⚠️ Offline or Rules Blocking Access";
-            renderTasks();
-        });
+    function loadProgress() {
+        // Fetch data from phone/browser memory
+        const savedData = localStorage.getItem(`tasks_${currentUser}`);
+        if (savedData) {
+            completedTasks = JSON.parse(savedData);
+        } else {
+            completedTasks = {};
+        }
+        renderTasks();
     }
 
     function toggleTask(taskName, element) {
@@ -167,10 +139,8 @@
             element.classList.remove('done');
         }
         
-        db.collection("familyTasks").doc(currentUser).set(completedTasks).catch((error) => {
-            console.error("Error saving data:", error);
-            document.getElementById('status-text').innerText = "⚠️ Failed to save to Cloud";
-        });
+        // Save directly to phone/browser memory
+        localStorage.setItem(`tasks_${currentUser}`, JSON.stringify(completedTasks));
     }
 </script>
 
