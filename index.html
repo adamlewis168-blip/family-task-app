@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Team Lewis Tasks</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f5f5f7; margin: 0; padding: 20px; color: #1d1d1f; }
+        .container { max-width: 500px; margin: 0 auto; background: white; padding: 25px; border-radius: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        h1, h2 { text-align: center; color: #0071e3; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; }
+        .btn { padding: 20px; font-size: 18px; border: none; border-radius: 12px; background: #e8e8ed; cursor: pointer; font-weight: 600; text-align: center; transition: all 0.2s; }
+        .btn:hover { background: #d2d2d7; }
+        .btn-parent { background: #0071e3; color: white; }
+        .btn-parent:hover { background: #005bb5; }
+        .hidden { display: none; }
+        .task-list { margin-top: 20px; }
+        .task-section { margin-bottom: 25px; }
+        .task-section h3 { border-bottom: 2px solid #e8e8ed; padding-bottom: 5px; color: #86868b; }
+        .task-item { display: flex; align-items: center; padding: 15px; background: #f5f5f7; margin-bottom: 10px; border-radius: 10px; cursor: pointer; user-select: none; }
+        .task-item.done { background: #d4edda; color: #155724; text-decoration: line-through; }
+        .checkbox { width: 24px; height: 24px; border: 2px solid #86868b; border-radius: 6px; margin-right: 15px; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+        .task-item.done .checkbox { border-color: #28a745; background: #28a745; color: white; }
+        .task-item.done .checkbox::after { content: "✓"; }
+        .back-btn { display: inline-block; margin-bottom: 20px; color: #0071e3; cursor: pointer; text-decoration: none; font-weight: 500; }
+        .status-msg { text-align: center; font-size: 12px; color: #86868b; margin-top: 10px; }
+    </style>
+
+    <!-- Classic Firebase Libraries (Allowed on local files) -->
+    <script src="https://gstatic.com"></script>
+    <script src="https://gstatic.com"></script>
+</head>
+<body>
+
+<div class="container">
+    <!-- SCREEN 1: FAMILY SELECTION -->
+    <div id="screen-login">
+        <h1>🏠 Team Lewis</h1>
+        <h2>Who are you?</h2>
+        <div class="grid">
+            <button class="btn btn-parent" onclick="selectUser('Adam')">👨 Adam</button>
+            <button class="btn btn-parent" onclick="selectUser('Coleen')">👩 Coleen</button>
+            <button class="btn" onclick="selectUser('Sophia')">👧 Sophia</button>
+            <button class="btn" onclick="selectUser('Annabelle')">👧 Annabelle</button>
+        </div>
+    </div>
+
+    <!-- SCREEN 2: TASKS VIEW -->
+    <div id="screen-tasks" class="hidden">
+        <a class="back-btn" onclick="showLogin()">← Change User</a>
+        <h1 id="user-title">Jobs</h1>
+        <div id="status-text" class="status-msg">Connecting to cloud database...</div>
+        
+        <div class="task-list" id="task-container">
+            <!-- Tasks load here -->
+        </div>
+    </div>
+</div>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyA4zOR34_un8uv8e05Vs8OBHOgH_BwlpyI",
+  authDomain: "team-lewis-ac958.firebaseapp.com",
+  projectId: "team-lewis-ac958",
+  storageBucket: "team-lewis-ac958.firebasestorage.app",
+  messagingSenderId: "503360012799",
+  appId: "1:503360012799:web:3a5ca4ef8258c737e3a7ca"
+};
+
+    // Initialize Firebase using the classic compatibility layout
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    const familyData = {
+        Sophia: {
+            "🌅 Morning": ["Wash", "Brush teeth", "Breakfast & drink", "Crockery in dishwasher"],
+            "🏠 After school": ["Change", "Play with cats", "Lights", "Dogs"],
+            "🌙 Bedtime": ["Brush teeth", "Change", "Dirty clothes in basket"]
+        },
+        Annabelle: {
+            "🌅 Morning": ["Wash", "Brush teeth", "Breakfast", "Pack school bag"],
+            "🌙 Bedtime": ["Brush teeth", "Reading", "Pyjamas"]
+        },
+        Adam: {
+            "⚡ Daily Tasks": ["Feed the cats", "Shower", "Check homework", "Take bins out"]
+        },
+        Coleen: {
+            "⚡ Daily Tasks": ["Feed the cats", "Water plants", "Check school calendar"]
+        }
+    };
+
+    let currentUser = "";
+    let completedTasks = {};
+
+    function selectUser(name) {
+        currentUser = name;
+        document.getElementById('screen-login').classList.add('hidden');
+        document.getElementById('screen-tasks').classList.remove('hidden');
+        document.getElementById('user-title').innerText = `${name}'s Jobs`;
+        document.getElementById('status-text').innerText = "Syncing with cloud...";
+        
+        loadProgressFromCloud();
+    }
+
+    function showLogin() {
+        document.getElementById('screen-tasks').classList.add('hidden');
+        document.getElementById('screen-login').classList.remove('hidden');
+    }
+
+    function renderTasks() {
+        const container = document.getElementById('task-container');
+        container.innerHTML = "";
+        
+        const sections = familyData[currentUser];
+        
+        for (const sectionName in sections) {
+            const sectionDiv = document.createElement('div');
+            sectionDiv.className = 'task-section';
+            sectionDiv.innerHTML = `<h3>${sectionName}</h3>`;
+            
+            sections[sectionName].forEach(task => {
+                const isDone = completedTasks[task] || false;
+                
+                const taskItem = document.createElement('div');
+                taskItem.className = `task-item ${isDone ? 'done' : ''}`;
+                taskItem.setAttribute('onclick', `toggleTask('${task.replace(/'/g, "\\'")}', this)`);
+                
+                taskItem.innerHTML = `
+                    <div class="checkbox"></div>
+                    <span>${task}</span>
+                `;
+                
+                sectionDiv.appendChild(taskItem);
+            });
+            
+            container.appendChild(sectionDiv);
+        }
+    }
+
+    function loadProgressFromCloud() {
+        const docRef = db.collection("familyTasks").doc(currentUser);
+        
+        docRef.get().then((docSnap) => {
+            if (docSnap.exists) {
+                completedTasks = docSnap.data();
+                document.getElementById('status-text').innerText = "☁️ Synced with Cloud";
+            } else {
+                completedTasks = {};
+                docRef.set({});
+                document.getElementById('status-text').innerText = "☁️ New Cloud Profile Created";
+            }
+            renderTasks();
+        }).catch((error) => {
+            console.error("Error loading data:", error);
+            document.getElementById('status-text').innerText = "⚠️ Offline or Rules Blocking Access";
+            renderTasks(); // Fallback to render tasks anyway so the app isn't stuck
+        });
+    }
+
+    function toggleTask(taskName, element) {
+        completedTasks[taskName] = !completedTasks[taskName];
+        
+        if (completedTasks[taskName]) {
+            element.classList.add('done');
+        } else {
+            element.classList.remove('done');
+        }
+        
+        db.collection("familyTasks").doc(currentUser).set(completedTasks).catch((error) => {
+            console.error("Error saving data:", error);
+            document.getElementById('status-text').innerText = "⚠️ Failed to save to Cloud";
+        });
+    }
+</script>
+
+</body>
+</html>
